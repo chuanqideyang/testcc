@@ -19,10 +19,12 @@ struct DataPacket
 struct InflightPacket : DataPacket
 {
     Timepoint sendtic{ Timepoint::Zero() };
+    uint32_t inflight{0};
 
     friend std::ostream& operator<<(std::ostream& os, const InflightPacket& pkt)
     {
-        os << "{ seq: " << pkt.seq << " piceId: " << pkt.pieceId << " sendtic: " << pkt.sendtic << " }";
+        os << "{ seq: " << pkt.seq << " piceId: " << pkt.pieceId << " sendtic: "
+           << pkt.sendtic << " inflight: " << pkt.inflight << " }";
         return os;
     }
 
@@ -70,6 +72,7 @@ public:
         inflightPacket.seq = p.seq;
         inflightPacket.pieceId = p.pieceId;
         inflightPacket.sendtic = sendtic;
+        inflightPacket.inflight = inflightPktMap.size();
         auto&& itor_pair = inflightPktMap.emplace(std::make_pair(p.seq, p.pieceId), inflightPacket);
         if (!itor_pair.second)
         {
@@ -77,7 +80,7 @@ public:
         }
         else
         {
-            if (p.seq > maxSeqInflightPkt.seq)
+            if (p.seq > maxSeqInflightPkt.seq || maxSeqInflightPkt.seq == MAX_SEQNUMBER)
             {
                 maxSeqInflightPkt = inflightPacket;
             }
@@ -96,7 +99,7 @@ public:
             inflightPktMap.erase(std::make_pair(p.seq, p.pieceId));
             SPDLOG_DEBUG("recv pkt with seq = {}, max inflight {}, max acked {}", p.seq,
                     MaxSeqInflightPkt().DebugInfo(), MaxSeqAckedPkt().DebugInfo());
-            if (p.seq > maxSeqAckPkt.seq)
+            if (p.seq > maxSeqAckPkt.seq || maxSeqAckPkt.seq == MAX_SEQNUMBER)
             {
                 AckedPacket ackpkt;
                 ackpkt.seq = p.seq;

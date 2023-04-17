@@ -7,6 +7,7 @@ include_directories(${PROJECT_SOURCE_DIR}/demo/utils
                     ${PROJECT_SOURCE_DIR}/demo)
 set(DEMO_SOURCES
         ${PROJECT_SOURCE_DIR}/demo/demotransportcontroller.cpp
+        ${PROJECT_SOURCE_DIR}/demo/congestioncontrol.cpp
         ${PROJECT_SOURCE_DIR}/demo/utils/defaultclock.cpp
         ${PROJECT_SOURCE_DIR}/demo/utils/thirdparty/quiche/quic_clock.cpp
         ${PROJECT_SOURCE_DIR}/demo/utils/thirdparty/quiche/quic_time.cpp

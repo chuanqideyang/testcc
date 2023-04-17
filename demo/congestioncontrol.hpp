@@ -12,11 +12,15 @@
 #include "utils/defaultclock.hpp"
 #include "sessionstreamcontroller.hpp"
 #include "packettype.h"
+#include "json.hpp"
+
+using json = nlohmann::json;
 
 enum class CongestionCtlType : uint8_t
 {
     none = 0,
-    reno = 1
+    reno = 1,
+    test = 2
 };
 
 struct LossEvent
@@ -338,4 +342,111 @@ private:
     uint32_t m_minCwnd{ 1 };
     uint32_t m_maxCwnd{ 64 };
     uint32_t m_ssThresh{ 32 };/** slow start threshold*/
+};
+
+struct TestCongestionCtlConfig
+{
+    TestCongestionCtlConfig(RenoCongestionCtlConfig& renoconfig);
+    TestCongestionCtlConfig();
+    uint32_t minCwnd{1};
+};
+
+enum IntervalType
+{
+    NORMAL,
+    PROBE,
+};
+
+struct Interval
+{
+    IntervalType type{NORMAL};
+    uint32_t conn_id{0};
+    uint32_t max_inflight{0};
+    uint32_t target_cwnd{0};
+    uint32_t output_cwnd{0};
+    uint32_t start_seq{MAX_SEQNUMBER};
+    uint32_t end_seq{MAX_SEQNUMBER};
+    uint32_t send_cnt{0};
+    uint32_t loss_cnt{0};
+    uint32_t ack_cnt{0};
+    float loss_rate{0};
+    bool sent_done{false};
+    bool recv_done{false};
+    uint32_t throughput{0}; // kbps
+    float utility{0}; // virtual bandwidth
+    QuicTime first_send_tic{QuicTime::Zero()};
+    QuicTime first_recv_tic{QuicTime::Zero()};
+    QuicTime last_recv_tic{QuicTime::Zero()};
+    QuicTime::Delta rtt{QuicTime::Delta::Zero()};
+    QuicTime::Delta avg_rtt{QuicTime::Delta::Zero()};
+    QuicTime::Delta extra_duration{QuicTime::Delta::Zero()};
+    void OnDataSent(const InflightPacket& sentpkt);
+    void CheckIfSentDone(uint32_t seq, QuicTime now, uint32_t newly_free);
+    void CalculateStatistics();
+    std::string ToStr()
+    {
+        json state;
+        state["connid"] = conn_id;
+        state["max_inflight"] = max_inflight;
+        state["target_cwnd"] = target_cwnd;
+        state["start_seq"] = start_seq;
+        state["end_seq"] = end_seq;
+        state["send_cnt"] = send_cnt;
+        state["loss_cnt"] = loss_cnt;
+        state["ack_cnt"] = ack_cnt;
+        state["sent_done"] = sent_done;
+        state["recv_done"] = recv_done;
+        state["throughput"] = throughput;
+        state["first_send_tic"] = first_send_tic.ToDebuggingValue() / 1000;
+        state["first_recv_tic"] = first_recv_tic.ToDebuggingValue() / 1000;
+        state["last_recv_tic"]  = last_recv_tic.ToDebuggingValue() / 1000;
+        state["loss_rate"] = loss_rate;
+        state["rtt"] = rtt.ToMilliseconds();
+        state["avg_rtt"] = avg_rtt.ToMilliseconds();
+        state["utility"] = utility;
+        return state.dump();
+    }
+};
+
+struct CwndProfile
+{
+    uint32_t cwnd{0};
+    float utility{0};
+};
+
+class TestCongestionCtrl : public CongestionCtlAlgo
+{
+public:
+    explicit TestCongestionCtrl(const TestCongestionCtlConfig& ccConfig);
+    ~TestCongestionCtrl() override;
+    CongestionCtlType GetCCtype() override;
+    void OnDataSent(const InflightPacket& sentpkt) override;
+    void OnDataAckOrLoss(const AckEvent& ackEvent, const LossEvent& lossEvent, RttStats& rttstats) override;
+    void OnDataRecv(const AckEvent& ackEvent);
+    void OnDataLoss(const LossEvent& lossEvent);
+    uint32_t GetCWND() override;
+
+private:
+    bool IsSeqValid(uint32_t seq);
+    bool MaybeCreateInterval();
+    void CreateInterval();
+    uint32_t BoundCwnd(uint32_t cwnd);
+    uint32_t CalculateProbeCwnd();
+    void UpdateCwndProfile(Interval &itvl);
+
+    uint32_t m_minCwnd{1};
+    uint32_t m_initCwnd{10};
+    std::vector<Interval> m_intervalHistory;
+    uint32_t m_id{ 0 };
+    QuicTime::Delta m_latestRtt{QuicTime::Delta::Zero()};
+    uint32_t m_largestAcked{MAX_SEQNUMBER};
+    uint32_t m_aicnt{4};
+    uint32_t m_freeCnt{0};
+
+    bool m_inSlowStart{true};
+    uint32_t m_bestCwnd{10};
+    uint32_t m_probeDirection{1};
+    uint32_t m_probeStepPower{3};
+    uint32_t m_slowStartFailCnt{0};
+    std::map<uint32_t, CwndProfile> m_cwndStats;
 };

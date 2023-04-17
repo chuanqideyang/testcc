@@ -83,7 +83,8 @@ public:
         m_ssStreamHandler = ssStreamHandler;
         // cc
         m_ccConfig = ccConfig;
-        m_congestionCtl.reset(new RenoCongestionContrl(m_ccConfig));
+        //m_congestionCtl.reset(new RenoCongestionContrl(m_ccConfig));
+        m_congestionCtl.reset(new TestCongestionCtrl(m_ccConfig));
 
         // send control
         m_sendCtl.reset(new PacketSender());
@@ -197,6 +198,7 @@ public:
             sentpkt.seq = seqs[seqidx];
             sentpkt.pieceId = datano;
             sentpkt.sendtic = sendtic;
+            sentpkt.inflight = m_inflightpktmap.InFlightPktNum() - 1;
             m_congestionCtl->OnDataSent(sentpkt);
             seqidx++;
         }
@@ -216,13 +218,13 @@ public:
         if (inFlight)
         {
 
-            auto oldsrtt = m_rttstats.smoothed_rtt();
+            //auto oldsrtt = m_rttstats.smoothed_rtt();
             // we don't have ack_delay in this simple implementation.
             auto pkt_rtt = recvtic - inflightPkt.sendtic;
             m_rttstats.UpdateRtt(pkt_rtt, Duration::Zero(), Clock::GetClock()->Now());
-            auto newsrtt = m_rttstats.smoothed_rtt();
+            //auto newsrtt = m_rttstats.smoothed_rtt();
 
-            auto oldcwnd = m_congestionCtl->GetCWND();
+            //auto oldcwnd = m_congestionCtl->GetCWND();
 
             AckEvent ackEvent;
             ackEvent.valid = true;
@@ -232,7 +234,7 @@ public:
             LossEvent lossEvent; // if we detect loss when ACK event, we may do loss check here.
             m_congestionCtl->OnDataAckOrLoss(ackEvent, lossEvent, m_rttstats);
 
-            auto newcwnd = m_congestionCtl->GetCWND();
+            //auto newcwnd = m_congestionCtl->GetCWND();
             // mark as received
             m_inflightpktmap.OnPacktReceived(inflightPkt, recvtic);
         }
