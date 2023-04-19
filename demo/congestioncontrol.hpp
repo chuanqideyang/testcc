@@ -440,13 +440,10 @@ private:
     uint32_t m_id{ 0 };
     QuicTime::Delta m_latestRtt{QuicTime::Delta::Zero()};
     uint32_t m_largestAcked{MAX_SEQNUMBER};
-    uint32_t m_aicnt{4};
+    uint32_t m_aicnt{2};
     uint32_t m_freeCnt{0};
 
-    bool m_inSlowStart{true};
     uint32_t m_bestCwnd{10};
-    uint32_t m_probeDirection{1};
     uint32_t m_probeStepPower{3};
-    uint32_t m_slowStartFailCnt{0};
     std::map<uint32_t, CwndProfile> m_cwndStats;
 };
